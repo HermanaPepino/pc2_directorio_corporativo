@@ -4,6 +4,7 @@ const routes = [
     component: () => import('@/layouts/MainLayout.vue'),
     children: [
       { path: '', component: () => import('@/pages/IndexPage.vue') },
+      { path: 'comparar', component: () => import('@/pages/CompareUsersPage.vue') },
       { path: 'second', component: () => import('@/pages/SecondPage.vue') },
     ],
   },
