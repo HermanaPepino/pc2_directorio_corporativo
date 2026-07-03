@@ -2,17 +2,92 @@
   <q-page class="q-pa-md">
     <div class="q-mx-auto" style="max-width: 1450px">
       <q-card flat bordered class="main-card">
+        
         <div class="row items-center justify-between q-gutter-md q-mb-lg">
           <div>
             <div class="text-h5 text-weight-bold text-green-10">Directorio Corporativo</div>
             <div class="text-grey-7">Consulta de colaboradores registrados</div>
           </div>
-
-          <q-badge color="green-8" class="q-pa-sm"> {{ pagination.rowsNumber }} usuarios </q-badge>
+          <q-badge color="green-8" class="q-pa-sm"> {{ filteredUsers.length }} mostrados </q-badge>
         </div>
 
+        <!-- Barra de búsqueda y Filtros combinados -->
+        <div class="row q-col-gutter-sm q-mb-lg">
+          <!-- Caja de Búsqueda -->
+          <div class="col-12 col-md-4">
+            <q-input
+              v-model="searchQuery"
+              outlined
+              dense
+              label="Buscar por nombre o apellido..."
+              color="green-8"
+              @update:model-value="onSearchChange"
+              debounce="500"
+            >
+              <template v-slot:append>
+                <q-icon name="search" />
+              </template>
+            </q-input>
+          </div>
+
+          <!-- Filtro de Género -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-select
+              v-model="filters.gender"
+              outlined
+              dense
+              label="Género"
+              :options="['Todos', 'Masculino', 'Femenino']"
+              color="green-8"
+            />
+          </div>
+
+          <!-- Filtro de Rango de Edad -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-select
+              v-model="filters.ageRange"
+              outlined
+              dense
+              label="Rango de Edad"
+              :options="['Todos', '18-30', '31-45', '46+']"
+              color="green-8"
+            />
+          </div>
+
+          <!-- Filtro de País -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-input
+              v-model="filters.country"
+              outlined
+              dense
+              label="País"
+              color="green-8"
+            />
+          </div>
+
+          <!-- Filtro de Ciudad -->
+          <div class="col-6 col-sm-3 col-md-2">
+            <q-input
+              v-model="filters.city"
+              outlined
+              dense
+              label="Ciudad"
+              color="green-8"
+            />
+          </div>
+        </div>
+
+        <!-- Alerta de no coincidencias -->
+        <div v-if="filteredUsers.length === 0 && !loading" class="q-pa-xl text-center text-grey-7">
+          <q-icon name="warning" size="md" color="warning" class="q-mb-sm" />
+          <div class="text-h6">No se encontraron coincidencias</div>
+          <div>Intenta ajustar los criterios de búsqueda o los filtros aplicados.</div>
+        </div>
+
+        <!-- Tabla de usuarios -->
         <UserTable
-          :rows="users"
+          v-else
+          :rows="filteredUsers"
           :columns="columns"
           :loading="loading"
           v-model:pagination="pagination"
@@ -22,13 +97,13 @@
       </q-card>
     </div>
 
+    <!-- Modal de detalle -->
     <q-dialog v-model="detailDialog">
       <q-card class="detail-card">
         <q-card-section class="row items-center q-gutter-md bg-green-1">
           <q-avatar size="72px" class="avatar-border">
             <img :src="selectedUser?.image" />
           </q-avatar>
-
           <div>
             <div class="text-h6 text-green-10">
               {{ selectedUser?.firstName }} {{ selectedUser?.lastName }}
@@ -49,28 +124,24 @@
                 <q-item-label>{{ selectedUser.age }}</q-item-label>
               </q-item-section>
             </q-item>
-
             <q-item>
               <q-item-section>
                 <q-item-label caption>Género</q-item-label>
                 <q-item-label>{{ translateGender(selectedUser.gender) }}</q-item-label>
               </q-item-section>
             </q-item>
-
             <q-item>
               <q-item-section>
                 <q-item-label caption>Empresa</q-item-label>
                 <q-item-label>{{ selectedUser.company?.name || '—' }}</q-item-label>
               </q-item-section>
             </q-item>
-
             <q-item>
               <q-item-section>
                 <q-item-label caption>Cargo</q-item-label>
                 <q-item-label>{{ selectedUser.company?.title || '—' }}</q-item-label>
               </q-item-section>
             </q-item>
-
             <q-item>
               <q-item-section>
                 <q-item-label caption>Ubicación</q-item-label>
@@ -92,7 +163,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import UserTable from '@/components/UserTable.vue'
 
@@ -105,6 +176,15 @@ const loading = ref(false)
 const detailDialog = ref(false)
 const selectedUser = ref(null)
 
+// Variables reactivas para búsqueda y filtros
+const searchQuery = ref('')
+const filters = ref({
+  gender: 'Todos',
+  ageRange: 'Todos',
+  country: '',
+  city: ''
+})
+
 const pagination = ref({
   page: 1,
   rowsPerPage: 10,
@@ -112,66 +192,16 @@ const pagination = ref({
 })
 
 const columns = [
-  {
-    name: 'image',
-    label: 'Foto',
-    field: 'image',
-    align: 'center',
-  },
-  {
-    name: 'fullName',
-    label: 'Nombre completo',
-    field: (row) => `${row.firstName} ${row.lastName}`,
-    align: 'left',
-  },
-  {
-    name: 'age',
-    label: 'Edad',
-    field: 'age',
-    align: 'center',
-  },
-  {
-    name: 'gender',
-    label: 'Género',
-    field: 'gender',
-    align: 'left',
-  },
-  {
-    name: 'email',
-    label: 'Correo electrónico',
-    field: 'email',
-    align: 'left',
-  },
-  {
-    name: 'company',
-    label: 'Empresa',
-    field: (row) => row.company?.name || '—',
-    align: 'left',
-  },
-  {
-    name: 'title',
-    label: 'Cargo',
-    field: (row) => row.company?.title || '—',
-    align: 'left',
-  },
-  {
-    name: 'city',
-    label: 'Ciudad',
-    field: (row) => row.address?.city || '—',
-    align: 'left',
-  },
-  {
-    name: 'country',
-    label: 'País',
-    field: (row) => row.address?.country || '—',
-    align: 'left',
-  },
-  {
-    name: 'actions',
-    label: 'Acción',
-    field: 'actions',
-    align: 'center',
-  },
+  { name: 'image', label: 'Foto', field: 'image', align: 'center' },
+  { name: 'fullName', label: 'Nombre completo', field: (row) => `${row.firstName} ${row.lastName}`, align: 'left' },
+  { name: 'age', label: 'Edad', field: 'age', align: 'center' },
+  { name: 'gender', label: 'Género', field: 'gender', align: 'left' },
+  { name: 'email', label: 'Correo electrónico', field: 'email', align: 'left' },
+  { name: 'company', label: 'Empresa', field: (row) => row.company?.name || '—', align: 'left' },
+  { name: 'title', label: 'Cargo', field: (row) => row.company?.title || '—', align: 'left' },
+  { name: 'city', label: 'Ciudad', field: (row) => row.address?.city || '—', align: 'left' },
+  { name: 'country', label: 'País', field: (row) => row.address?.country || '—', align: 'left' },
+  { name: 'actions', label: 'Acción', field: 'actions', align: 'center' },
 ]
 
 function translateGender(gender) {
@@ -180,19 +210,58 @@ function translateGender(gender) {
   return gender || '—'
 }
 
-async function fetchUsers(page = 1, rowsPerPage = 10) {
-  loading.value = true
-
-  try {
-    const skip = (page - 1) * rowsPerPage
-    const response = await fetch(`${API_URL}?limit=${rowsPerPage}&skip=${skip}`)
-
-    if (!response.ok) {
-      throw new Error('No se pudo cargar la lista de usuarios')
+// Lógica de filtrado combinado en Frontend
+const filteredUsers = computed(() => {
+  return users.value.filter(user => {
+    // Filtro por Género
+    if (filters.value.gender !== 'Todos') {
+      const mappedGender = filters.value.gender === 'Masculino' ? 'male' : 'female'
+      if (user.gender !== mappedGender) return false
     }
 
-    const data = await response.json()
+    // Filtro por Rango de Edad
+    if (filters.value.ageRange !== 'Todos') {
+      const age = user.age
+      if (filters.value.ageRange === '18-30' && (age < 18 || age > 30)) return false
+      if (filters.value.ageRange === '31-45' && (age < 31 || age > 45)) return false
+      if (filters.value.ageRange === '46+' && age < 46) return false
+    }
 
+    // Filtro por País
+    if (filters.value.country.trim() !== '') {
+      const countryUser = (user.address?.country || '').toLowerCase()
+      const countrySearch = filters.value.country.toLowerCase()
+      if (!countryUser.includes(countrySearch)) return false
+    }
+
+    // Filtro por Ciudad
+    if (filters.value.city.trim() !== '') {
+      const cityUser = (user.address?.city || '').toLowerCase()
+      const citySearch = filters.value.city.toLowerCase()
+      if (!cityUser.includes(citySearch)) return false
+    }
+
+    return true
+  })
+})
+
+// Control de peticiones a la API (Soporta Búsqueda externa y Paginación)
+async function fetchUsers(page = 1, rowsPerPage = 10) {
+  loading.value = true
+  try {
+    let url = ''
+    const skip = (page - 1) * rowsPerPage
+
+    if (searchQuery.value.trim() !== '') {
+      url = `${API_URL}/search?q=${searchQuery.value.trim()}&limit=${rowsPerPage}&skip=${skip}`
+    } else {
+      url = `${API_URL}?limit=${rowsPerPage}&skip=${skip}`
+    }
+
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('No se pudo cargar la lista de usuarios')
+
+    const data = await response.json()
     users.value = data.users || []
 
     pagination.value = {
@@ -203,7 +272,6 @@ async function fetchUsers(page = 1, rowsPerPage = 10) {
     }
   } catch (error) {
     users.value = []
-
     $q.notify({
       type: 'negative',
       message: error.message || 'Ocurrió un error al cargar los usuarios',
@@ -211,6 +279,11 @@ async function fetchUsers(page = 1, rowsPerPage = 10) {
   } finally {
     loading.value = false
   }
+}
+
+// Ejecución al cambiar texto en el buscador
+function onSearchChange() {
+  fetchUsers(1, pagination.value.rowsPerPage)
 }
 
 function onRequest(props) {
@@ -234,14 +307,12 @@ onMounted(() => {
   padding: 24px;
   background: rgba(255, 255, 255, 0.95);
 }
-
 .detail-card {
   width: 460px;
   max-width: 90vw;
   border-radius: 18px;
   overflow: hidden;
 }
-
 .avatar-border {
   border: 2px solid #2e7d32;
   background: #e8f5e9;
