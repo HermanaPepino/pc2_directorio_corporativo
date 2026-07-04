@@ -38,6 +38,16 @@
             <q-item-label caption>Dos colaboradores</q-item-label>
           </q-item-section>
         </q-item>
+        <q-item clickable v-ripple to="/dashboard" active-class="active-menu-item">
+        <q-item-section avatar>
+          <q-icon name="dashboard" color="green-8" />
+        </q-item-section>
+
+        <q-item-section>
+          <q-item-label>Dashboard</q-item-label>
+          <q-item-label caption>Indicadores generales</q-item-label>
+        </q-item-section>
+      </q-item>
       </q-list>
     </q-drawer>
 
